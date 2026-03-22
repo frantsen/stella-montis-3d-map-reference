@@ -49,12 +49,18 @@ export function initApp(container: HTMLElement) {
       ;(window as any).mapMeshes = mapMeshes
 
       const { graph, exits } = extractNav(gltf);
+      ;(window as any).navGraph = graph;
+      ;(window as any).exits = exits;
 
       const box = new THREE.Box3().setFromObject(model)
       const center = box.getCenter(new THREE.Vector3())
 
       model.position.sub(center)
       model.updateMatrixWorld(true)
+
+      // Adjust navigation data (nodes/exits) to the same centered coordinate space used by rendered model
+      graph.nodes.forEach((node) => node.position.sub(center))
+      exits.forEach((exit) => exit.position.sub(center))
 
       drawFacesAndEdges(model)
 
@@ -87,7 +93,7 @@ export function initApp(container: HTMLElement) {
     setupTouchControls(renderer, camera, cameraRotation)
   } else {
     const mouse = new THREE.Vector2()
-    setupDesktopControls(renderer, camera, cameraRotation, mouse)
+    setupDesktopControls(renderer, camera, cameraRotation, mouse, scene)
   }
 
   function animate() {

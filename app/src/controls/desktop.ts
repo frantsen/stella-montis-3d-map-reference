@@ -1,8 +1,12 @@
 import * as THREE from 'three'
+import { nearestExit, nearestNode } from '../navigation/navGraph'
+import { aStar, buildPathLine } from '../navigation/pathfinding'
 
 const keys: Record<string, boolean> = {}
 export const moveSpeed = 0.045
 export const sprintMultiplier = 1.8
+
+let currentPathLine: THREE.Line | null = null
 
 const mouseLook = {
   lastX: 0,
@@ -18,10 +22,49 @@ export function setupDesktopControls(
   renderer: THREE.WebGLRenderer,
   camera: THREE.Camera,
   cameraRotation: { yaw: number; pitch: number },
-  mouse: THREE.Vector2
+  mouse: THREE.Vector2,
+  scene: THREE.Scene
 ) {
   window.addEventListener('keydown', (e) => {
-    keys[e.key.toLowerCase()] = true
+    const key = e.key.toLowerCase()
+
+    if (key === 'e') {
+      // Calculate nav-node path to nearest exit (not direct camera->exit line)
+      const graph = (window as any).navGraph
+      const exits = (window as any).exits
+      if (graph && exits) {
+        const nearestExitMarker = nearestExit(exits, camera.position)
+        if (nearestExitMarker) {
+          console.log('Nearest exit:', nearestExitMarker.label, 'at', nearestExitMarker.position)
+          const startNode = nearestNode(graph, camera.position)
+          const exitNodeId = nearestExitMarker.nearestNodeId
+          const route = aStar(graph, startNode.id, exitNodeId)
+          if (route) {
+            console.log('Nav node route found with', route.length, 'nodes')
+            const pathPoints = route.map((node) => node.position.clone())
+            // Remove previous path line
+            if (currentPathLine) {
+              scene.remove(currentPathLine)
+              currentPathLine.geometry.dispose()
+              ;(currentPathLine.material as THREE.Material).dispose()
+            }
+            // Add new path line with green color for visibility
+            currentPathLine = buildPathLine(pathPoints, 0x00ff00)
+            scene.add(currentPathLine)
+            console.log('Nav path line added to scene')
+          } else {
+            console.log('No nav path found to exit')
+          }
+        } else {
+          console.log('No nearest exit found')
+        }
+      } else {
+        console.log('Nav graph or exits not available')
+      }
+      return // Don't set in keys for movement
+    }
+
+    keys[key] = true
   })
 
   window.addEventListener('keyup', (e) => {
