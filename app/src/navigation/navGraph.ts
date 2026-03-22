@@ -11,9 +11,9 @@ export interface NavNode {
 }
 
 export interface NavEdge {
-  from: number; // NavNode id
-  to: number;   // NavNode id
-  cost: number; // Euclidean distance
+  from: number;
+  to: number;
+  cost: number;
 }
 
 export interface NavGraph {
@@ -23,22 +23,44 @@ export interface NavGraph {
   adjacency: Map<number, { to: number; cost: number }[]>;
 }
 
-// ---------------------------------------------------------------------------
-// Extraction
-// ---------------------------------------------------------------------------
+export type ExitSubtype = 'hatch' | 'extract';
 
-const SNAP_EPSILON = 0.001; // vertices closer than this are merged into one node
+export interface ExitMarker {
+  label: string;
+  subtype: ExitSubtype;
+  position: THREE.Vector3;
+  /** The nearest nav graph node — use this as the pathfinding goal */
+  nearestNodeId: number;
+  /** The source Three.js object from the GLTF scene */
+  object: THREE.Object3D;
+}
+
+// ---------------------------------------------------------------------------
+// Main entry point
+// ---------------------------------------------------------------------------
 
 /**
- * Traverse a loaded GLTF scene, find all meshes whose name starts with
- * 'navpath' (or are children of a node named 'paths'), and build a NavGraph
- * from their LINES primitives.
+ * Traverse a loaded GLTF scene and extract both the nav graph and exit markers
+ * in one pass.
  *
  * Usage:
  *   const gltf = await loader.loadAsync('map.glb');
- *   const graph = extractNavGraph(gltf);
+ *   const { graph, exits } = extractNav(gltf);
  */
-export function extractNavGraph(gltf: GLTF, nameFilter = /^navpath|^paths/i): NavGraph {
+export function extractNav(
+  gltf: GLTF,
+  navPathFilter = /^paths$/i
+): { graph: NavGraph; exits: ExitMarker[] } {
+  const graph = extractNavGraph(gltf, navPathFilter);
+  const exits = extractExits(gltf, graph);
+  return { graph, exits };
+}
+
+// ---------------------------------------------------------------------------
+// Nav graph extraction
+// ---------------------------------------------------------------------------
+
+export function extractNavGraph(gltf: GLTF, nameFilter = /^paths$/i): NavGraph {
   const positionKey = (v: THREE.Vector3) =>
     `${v.x.toFixed(3)},${v.y.toFixed(3)},${v.z.toFixed(3)}`;
 
@@ -55,57 +77,44 @@ export function extractNavGraph(gltf: GLTF, nameFilter = /^navpath|^paths/i): Na
     return id;
   }
 
-  // Walk every node in the GLTF scene
   gltf.scene.traverse((obj) => {
-    // Match by object name OR parent name ('paths' collection in Blender)
-    const matchesSelf = nameFilter.test(obj.name);
+    const matchesSelf   = nameFilter.test(obj.name);
     const matchesParent = obj.parent ? nameFilter.test(obj.parent.name) : false;
     if (!matchesSelf && !matchesParent) return;
     if (!(obj instanceof THREE.Mesh)) return;
 
-    const mesh = obj as THREE.Mesh;
-    const geo = mesh.geometry as THREE.BufferGeometry;
+    const mesh    = obj as THREE.Mesh;
+    const geo     = mesh.geometry as THREE.BufferGeometry;
     const posAttr = geo.getAttribute('position') as THREE.BufferAttribute;
     if (!posAttr) return;
 
-    // Compute world matrix so positions are in world space
     mesh.updateWorldMatrix(true, false);
     const mat = mesh.matrixWorld;
 
-    const getWorldVert = (i: number): THREE.Vector3 => {
-      const v = new THREE.Vector3(
-        posAttr.getX(i),
-        posAttr.getY(i),
-        posAttr.getZ(i)
-      );
-      return v.applyMatrix4(mat);
-    };
+    const getWorldVert = (i: number): THREE.Vector3 =>
+      new THREE.Vector3(posAttr.getX(i), posAttr.getY(i), posAttr.getZ(i))
+        .applyMatrix4(mat);
 
     if (geo.index) {
-      // Indexed geometry — pairs of indices form line segments
       const idx = geo.index;
       for (let i = 0; i < idx.count; i += 2) {
         const aId = getOrCreateNode(getWorldVert(idx.getX(i)));
         const bId = getOrCreateNode(getWorldVert(idx.getX(i + 1)));
         if (aId !== bId) {
-          const cost = nodes[aId].position.distanceTo(nodes[bId].position);
-          edges.push({ from: aId, to: bId, cost });
+          edges.push({ from: aId, to: bId, cost: nodes[aId].position.distanceTo(nodes[bId].position) });
         }
       }
     } else {
-      // Non-indexed — consecutive pairs are line segments (GL_LINES)
       for (let i = 0; i < posAttr.count; i += 2) {
         const aId = getOrCreateNode(getWorldVert(i));
         const bId = getOrCreateNode(getWorldVert(i + 1));
         if (aId !== bId) {
-          const cost = nodes[aId].position.distanceTo(nodes[bId].position);
-          edges.push({ from: aId, to: bId, cost });
+          edges.push({ from: aId, to: bId, cost: nodes[aId].position.distanceTo(nodes[bId].position) });
         }
       }
     }
   });
 
-  // Build undirected adjacency list
   const adjacency = new Map<number, { to: number; cost: number }[]>();
   for (const node of nodes) adjacency.set(node.id, []);
   for (const edge of edges) {
@@ -113,24 +122,79 @@ export function extractNavGraph(gltf: GLTF, nameFilter = /^navpath|^paths/i): Na
     adjacency.get(edge.to)!.push({   to: edge.from, cost: edge.cost });
   }
 
-  console.log(`[NavGraph] Extracted ${nodes.length} nodes, ${edges.length} edges`);
+  console.log(`[NavGraph] ${nodes.length} nodes, ${edges.length} edges`);
   return { nodes, edges, adjacency };
+}
+
+// ---------------------------------------------------------------------------
+// Exit marker extraction
+// ---------------------------------------------------------------------------
+
+/**
+ * Finds all objects in the GLTF scene tagged with marker_type = 'exit' in
+ * their userData (written by Blender Custom Properties → GLTF extras).
+ * Each exit is snapped to its nearest nav graph node for pathfinding.
+ */
+export function extractExits(gltf: GLTF, graph: NavGraph): ExitMarker[] {
+  const exits: ExitMarker[] = [];
+
+  gltf.scene.traverse((obj) => {
+    const ud = obj.userData as Record<string, string>;
+    if (ud?.marker_type !== 'exit') return;
+
+    const position = new THREE.Vector3();
+    obj.getWorldPosition(position);
+
+    const nearest = nearestNode(graph, position);
+
+    exits.push({
+      label:         ud.marker_label ?? obj.name,
+      subtype:       (ud.marker_subtype as ExitSubtype) ?? 'extract',
+      position,
+      nearestNodeId: nearest.id,
+      object:        obj,
+    });
+
+    console.log(
+      `[NavGraph] Exit '${ud.marker_label}' (${ud.marker_subtype}) snapped to node #${nearest.id}`
+    );
+  });
+
+  console.log(`[NavGraph] ${exits.length} exits found`);
+  return exits;
 }
 
 // ---------------------------------------------------------------------------
 // Spatial helpers
 // ---------------------------------------------------------------------------
 
-/**
- * Find the NavNode closest to a given world position.
- * Use this to snap a player/destination position onto the graph.
- */
+/** Find the NavNode closest to a world position (for snapping player/goal). */
 export function nearestNode(graph: NavGraph, worldPos: THREE.Vector3): NavNode {
   let best = graph.nodes[0];
   let bestDist = Infinity;
   for (const node of graph.nodes) {
     const d = node.position.distanceToSquared(worldPos);
     if (d < bestDist) { bestDist = d; best = node; }
+  }
+  return best;
+}
+
+/**
+ * Find the nearest exit by straight-line distance (fast, no pathfinding).
+ * Good for HUD 'nearest exit' hints; use findPath() from pathfinding.ts for routing.
+ */
+export function nearestExit(
+  exits: ExitMarker[],
+  worldPos: THREE.Vector3,
+  subtype?: ExitSubtype
+): ExitMarker | null {
+  const candidates = subtype ? exits.filter(e => e.subtype === subtype) : exits;
+  if (!candidates.length) return null;
+  let best = candidates[0];
+  let bestDist = Infinity;
+  for (const exit of candidates) {
+    const d = exit.position.distanceToSquared(worldPos);
+    if (d < bestDist) { bestDist = d; best = exit; }
   }
   return best;
 }
