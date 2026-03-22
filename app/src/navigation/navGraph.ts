@@ -49,7 +49,7 @@ export interface ExitMarker {
  */
 export function extractNav(
   gltf: GLTF,
-  navPathFilter = /^paths$/i
+  navPathFilter = /^paths$|^NavPaths$/i
 ): { graph: NavGraph; exits: ExitMarker[] } {
   const graph = extractNavGraph(gltf, navPathFilter);
   const exits = extractExits(gltf, graph);
@@ -60,7 +60,7 @@ export function extractNav(
 // Nav graph extraction
 // ---------------------------------------------------------------------------
 
-export function extractNavGraph(gltf: GLTF, nameFilter = /^paths$/i): NavGraph {
+export function extractNavGraph(gltf: GLTF, nameFilter = /^paths$|^NavPaths$/i): NavGraph {
   const positionKey = (v: THREE.Vector3) =>
     `${v.x.toFixed(3)},${v.y.toFixed(3)},${v.z.toFixed(3)}`;
 
@@ -81,7 +81,7 @@ export function extractNavGraph(gltf: GLTF, nameFilter = /^paths$/i): NavGraph {
     const matchesSelf   = nameFilter.test(obj.name);
     const matchesParent = obj.parent ? nameFilter.test(obj.parent.name) : false;
     if (!matchesSelf && !matchesParent) return;
-    if (!(obj instanceof THREE.Mesh)) return;
+    if (!(obj instanceof THREE.Mesh) && !(obj instanceof THREE.LineSegments)) return;
 
     const mesh    = obj as THREE.Mesh;
     const geo     = mesh.geometry as THREE.BufferGeometry;
