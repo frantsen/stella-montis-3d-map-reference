@@ -40,6 +40,14 @@ export function initApp(container: HTMLElement) {
       const model = gltf.scene
       scene.add(model)
 
+      const mapMeshes: THREE.Mesh[] = []
+      model.traverse((child) => {
+        if (child instanceof THREE.Mesh) {
+          mapMeshes.push(child)
+        }
+      })
+      ;(window as any).mapMeshes = mapMeshes
+
       const { graph, exits } = extractNav(gltf);
 
       const box = new THREE.Box3().setFromObject(model)

@@ -10,6 +10,9 @@ const mobileTouchState = {
 
 let lastPinchDistance = 0
 let mobileControlsSetup = false
+let longPressTimer: number | null = null
+let longPressTouch: Touch | null = null
+let longPressStartTime = 0
 
 function getTouchDistance(touch1: Touch, touch2: Touch): number {
   const dx = touch1.clientX - touch2.clientX
@@ -37,10 +40,22 @@ export function setupTouchControls(
   renderer.domElement.addEventListener('touchstart', (e) => {
     lastTouchCount = e.touches.length
     
+    // Clear any existing long press
+    if (longPressTimer) {
+      clearTimeout(longPressTimer)
+      longPressTimer = null
+      longPressTouch = null
+    }
+    
     if (e.touches.length === 1) {
-      // Single finger - prepare for rotation
+      // Single finger - prepare for rotation and long press
       mobileTouchState.lastTouchX = e.touches[0].clientX
       mobileTouchState.lastTouchY = e.touches[0].clientY
+      longPressTouch = e.touches[0]
+      longPressStartTime = Date.now()
+      longPressTimer = window.setTimeout(() => {
+        // Long press timer fired, but action on touchend
+      }, 500)
     } else if (e.touches.length === 2) {
       // Two fingers - prepare for pan and pinch
       lastPinchDistance = getTouchDistance(e.touches[0], e.touches[1])
@@ -53,9 +68,28 @@ export function setupTouchControls(
   renderer.domElement.addEventListener('touchmove', (e) => {
     e.preventDefault()
     
+    // Cancel long press if moved
+    if (longPressTimer && e.touches.length === 1 && longPressTouch) {
+      const touch = e.touches[0]
+      const deltaX = touch.clientX - longPressTouch.clientX
+      const deltaY = touch.clientY - longPressTouch.clientY
+      if (Math.abs(deltaX) > 10 || Math.abs(deltaY) > 10) {
+        clearTimeout(longPressTimer)
+        longPressTimer = null
+        longPressTouch = null
+      }
+    }
+    
     // Check if touch count changed (e.g., lifted one finger)
     if (e.touches.length !== lastTouchCount) {
       lastTouchCount = e.touches.length
+      
+      // Clear long press on touch count change
+      if (longPressTimer) {
+        clearTimeout(longPressTimer)
+        longPressTimer = null
+        longPressTouch = null
+      }
       
       // Reset positions to prevent jumps
       if (e.touches.length === 1) {
@@ -123,6 +157,37 @@ export function setupTouchControls(
   }, { passive: false })
 
   renderer.domElement.addEventListener('touchend', (e) => {
+    // Handle long press
+    if (longPressTimer && e.changedTouches.length === 1 && Date.now() - longPressStartTime >= 500) {
+      const touch = e.changedTouches[0]
+      const rect = renderer.domElement.getBoundingClientRect()
+      const x = ((touch.clientX - rect.left) / rect.width) * 2 - 1
+      const y = -((touch.clientY - rect.top) / rect.height) * 2 + 1
+      const mouse = new THREE.Vector2(x, y)
+      const raycaster = new THREE.Raycaster()
+      raycaster.setFromCamera(mouse, camera)
+      const meshes = (window as any).mapMeshes as THREE.Mesh[]
+      if (meshes && meshes.length > 0) {
+        const intersects = raycaster.intersectObjects(meshes)
+        if (intersects.length > 0) {
+          const point = intersects[0].point
+          const groundY = 0
+          const eyeHeight = 1.1
+          camera.position.set(point.x, groundY + eyeHeight, point.z)
+          cameraRotation.pitch = 0
+          const euler = new THREE.Euler(cameraRotation.pitch, cameraRotation.yaw, 0, 'YXZ')
+          camera.quaternion.setFromEuler(euler)
+        }
+      }
+    }
+    
+    // Clear long press
+    if (longPressTimer) {
+      clearTimeout(longPressTimer)
+      longPressTimer = null
+      longPressTouch = null
+    }
+    
     lastTouchCount = e.touches.length
     lastPinchDistance = 0
     

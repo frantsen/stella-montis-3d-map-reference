@@ -32,11 +32,35 @@ export function setupDesktopControls(
     e.preventDefault()
   })
 
-  renderer.domElement.addEventListener('click', () => {
-    if (document.pointerLockElement === renderer.domElement) {
-      document.exitPointerLock()
-    } else {
-      renderer.domElement.requestPointerLock()
+  renderer.domElement.addEventListener('click', (event) => {
+    if (event.shiftKey && document.pointerLockElement !== renderer.domElement) {
+      // perform raycast only when cursor is visible (pointer lock not active)
+      const rect = renderer.domElement.getBoundingClientRect()
+      const x = ((event.clientX - rect.left) / rect.width) * 2 - 1
+      const y = -((event.clientY - rect.top) / rect.height) * 2 + 1
+      const mouse = new THREE.Vector2(x, y)
+      const raycaster = new THREE.Raycaster()
+      raycaster.setFromCamera(mouse, camera)
+      const meshes = (window as any).mapMeshes as THREE.Mesh[]
+      if (meshes && meshes.length > 0) {
+        const intersects = raycaster.intersectObjects(meshes)
+        if (intersects.length > 0) {
+          const point = intersects[0].point
+          const groundY = 0
+          const eyeHeight = 1.1
+          camera.position.set(point.x, groundY + eyeHeight, point.z)
+          cameraRotation.pitch = 0 // reset pitch to flat
+          // keep yaw
+          const euler = new THREE.Euler(cameraRotation.pitch, cameraRotation.yaw, 0, 'YXZ')
+          camera.quaternion.setFromEuler(euler)
+        }
+      }
+    } else if (!event.shiftKey) {
+      if (document.pointerLockElement === renderer.domElement) {
+        document.exitPointerLock()
+      } else {
+        renderer.domElement.requestPointerLock()
+      }
     }
   })
 
