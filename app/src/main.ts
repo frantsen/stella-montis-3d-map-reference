@@ -4,7 +4,9 @@ import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { setupDesktopControls, updateDesktopMovement } from './controls/desktop'
 import { setupTouchControls } from './controls/touch'
 import { setupLighting, setupEdgeLines, drawFacesAndEdges } from './lighting'
-import modelUrl from './assets/stella-3d-reference.glb?url'
+import { extractNavGraph } from './navigation/navGraph';
+import { findPath, buildPathLine } from './navigation/pathfinding';
+import modelUrl from './assets/stella-3d-with-paths.glb?url'
 
 export function initApp(container: HTMLElement) {
   const scene = new THREE.Scene()
@@ -37,6 +39,8 @@ export function initApp(container: HTMLElement) {
       
       const model = gltf.scene
       scene.add(model)
+
+      const graph = extractNavGraph(gltf);
 
       const box = new THREE.Box3().setFromObject(model)
       const center = box.getCenter(new THREE.Vector3())
