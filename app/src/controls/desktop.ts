@@ -29,6 +29,14 @@ export function setupDesktopControls(
     const key = e.key.toLowerCase()
 
     if (key === 'e') {
+      // Clear any previous path line immediately
+      if (currentPathLine) {
+        scene.remove(currentPathLine)
+        currentPathLine.geometry.dispose()
+        ;(currentPathLine.material as THREE.Material).dispose()
+        currentPathLine = null
+      }
+
       // Calculate nav-node path to nearest exit (not direct camera->exit line)
       const graph = (window as any).navGraph
       const exits = (window as any).exits
@@ -51,12 +59,6 @@ export function setupDesktopControls(
       }
       console.log('Nav node route found with', route.length, 'nodes')
       const pathPoints = route.map((node) => node.position.clone())
-      // Remove previous path line
-      if (currentPathLine) {
-        scene.remove(currentPathLine)
-        currentPathLine.geometry.dispose()
-        ;(currentPathLine.material as THREE.Material).dispose()
-      }
       // Add new path line with green color for visibility
       currentPathLine = buildPathLine(pathPoints, 0x00ff00)
       scene.add(currentPathLine)
