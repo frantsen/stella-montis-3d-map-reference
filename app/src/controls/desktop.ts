@@ -40,18 +40,30 @@ export function setupDesktopControls(
       const graph = (window as any).navGraph
       const exits = (window as any).exits
       if (!graph || !exits) {
-        console.log('Nav graph or exits not available')
+        console.warn('Nav graph or exits not available')
         return
       }
-      const result = nearestReachableExit(graph, exits, camera.position)
-      if (!result) {
-        console.log('No reachable exit found from current position')
-        return
+
+      try {
+        const result = nearestReachableExit(graph, exits, camera.position)
+        if (!result) {
+          console.log('No reachable exit found from current position')
+          return
+        }
+
+        if (!Array.isArray(result.path) || result.path.length === 0) {
+          console.warn('Path result is empty or invalid', result.path)
+          return
+        }
+
+        console.log('Nearest reachable exit:', result.exit.label)
+        currentPathLine = buildPathLine(result.path, 0x00ff00)
+        scene.add(currentPathLine)
+        console.log('Nav path line added to scene')
+      } catch (err) {
+        console.error('Error computing or drawing nav path:', err)
       }
-      console.log('Nearest reachable exit:', result.exit.label)
-      currentPathLine = buildPathLine(result.path, 0x00ff00)
-      scene.add(currentPathLine)
-      console.log('Nav path line added to scene')
+
       return // Don't set in keys for movement
     }
 
