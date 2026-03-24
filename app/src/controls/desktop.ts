@@ -1,6 +1,5 @@
 import * as THREE from 'three'
-import { nearestExit, nearestNode } from '../navigation/navGraph'
-import { aStar, buildPathLine } from '../navigation/pathfinding'
+import { buildPathLine, nearestReachableExit } from '../navigation/pathfinding'
 
 const keys: Record<string, boolean> = {}
 export const moveSpeed = 0.045
@@ -44,23 +43,13 @@ export function setupDesktopControls(
         console.log('Nav graph or exits not available')
         return
       }
-      const nearestExitMarker = nearestExit(exits, camera.position)
-      if (!nearestExitMarker) {
-        console.log('No nearest exit found')
+      const result = nearestReachableExit(graph, exits, camera.position)
+      if (!result) {
+        console.log('No reachable exit found from current position')
         return
       }
-      console.log('Nearest exit:', nearestExitMarker.label, 'at', nearestExitMarker.position)
-      const startNode = nearestNode(graph, camera.position)
-      const exitNodeId = nearestExitMarker.nearestNodeId
-      const route = aStar(graph, startNode.id, exitNodeId)
-      if (!route) {
-        console.log('No nav path found to exit')
-        return
-      }
-      console.log('Nav node route found with', route.length, 'nodes')
-      const pathPoints = route.map((node) => node.position.clone())
-      // Add new path line with green color for visibility
-      currentPathLine = buildPathLine(pathPoints, 0x00ff00)
+      console.log('Nearest reachable exit:', result.exit.label)
+      currentPathLine = buildPathLine(result.path, 0x00ff00)
       scene.add(currentPathLine)
       console.log('Nav path line added to scene')
       return // Don't set in keys for movement

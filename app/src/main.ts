@@ -5,7 +5,6 @@ import { setupDesktopControls, updateDesktopMovement } from './controls/desktop'
 import { setupTouchControls } from './controls/touch'
 import { setupLighting, setupEdgeLines, drawFacesAndEdges } from './lighting'
 import { extractNav } from './navigation/navGraph';
-import { findPath, buildPathLine } from './navigation/pathfinding';
 import modelUrl from './assets/stella-3d-with-paths.glb?url'
 
 export function initApp(container: HTMLElement) {

@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { type NavGraph, type NavNode, nearestNode } from './navGraph';
+import { type ExitMarker, type ExitSubtype, type NavGraph, type NavNode, nearestNode } from './navGraph';
 
 // ---------------------------------------------------------------------------
 // A* Pathfinding
@@ -68,34 +68,47 @@ export function aStar(
 // ---------------------------------------------------------------------------
 
 /**
- * High-level helper: snaps two world positions onto the nav graph,
- * runs A*, and returns the path as an array of world-space Vector3s.
- *
- * Usage:
- *   const path = findPath(graph, playerPosition, destinationPosition);
- *   if (path) drawPathLine(path);
+ * Find the nearest reachable exit by actual path cost (A*), not straight-line distance.
+ * Returns both the exit and the path so you don't have to run A* twice.
  */
-export function findPath(
+export function nearestReachableExit(
   graph: NavGraph,
-  from: THREE.Vector3,
-  to: THREE.Vector3
-): THREE.Vector3[] | null {
-  if (graph.nodes.length === 0) return null;
+  exits: ExitMarker[],
+  fromPosition: THREE.Vector3,
+  subtype?: ExitSubtype
+): { exit: ExitMarker; path: THREE.Vector3[] } | null {
+  const startNode = nearestNode(graph, fromPosition);
+  if (!startNode) return null;
 
-  const startNode = nearestNode(graph, from);
-  const goalNode  = nearestNode(graph, to);
+  const candidates = subtype ? exits.filter(e => e.subtype === subtype) : exits;
 
-  if (startNode.id === goalNode.id) return [from.clone(), to.clone()];
+  let bestResult: { exit: ExitMarker; path: THREE.Vector3[] } | null = null;
+  let bestCost = Infinity;
 
-  const nodePath = aStar(graph, startNode.id, goalNode.id);
-  if (!nodePath) return null;
+  for (const exit of candidates) {
+    const nodePath = aStar(graph, startNode.id, exit.nearestNodeId);
+    if (!nodePath) continue; // unreachable — skip entirely
 
-  // Prepend actual start and append actual goal for sub-node precision
-  return [
-    from.clone(),
-    ...nodePath.map((n) => n.position.clone()),
-    to.clone(),
-  ];
+    // Cost is the sum of edge distances in the node path
+    let cost = 0;
+    for (let i = 1; i < nodePath.length; i++) {
+      cost += nodePath[i].position.distanceTo(nodePath[i - 1].position);
+    }
+
+    if (cost < bestCost) {
+      bestCost = cost;
+      bestResult = {
+        exit,
+        path: [
+          fromPosition.clone(),
+          ...nodePath.map(n => n.position.clone()),
+          exit.position.clone(),
+        ],
+      };
+    }
+  }
+
+  return bestResult;
 }
 
 // ---------------------------------------------------------------------------
