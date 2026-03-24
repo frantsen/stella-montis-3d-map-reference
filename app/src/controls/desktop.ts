@@ -32,35 +32,35 @@ export function setupDesktopControls(
       // Calculate nav-node path to nearest exit (not direct camera->exit line)
       const graph = (window as any).navGraph
       const exits = (window as any).exits
-      if (graph && exits) {
-        const nearestExitMarker = nearestExit(exits, camera.position)
-        if (nearestExitMarker) {
-          console.log('Nearest exit:', nearestExitMarker.label, 'at', nearestExitMarker.position)
-          const startNode = nearestNode(graph, camera.position)
-          const exitNodeId = nearestExitMarker.nearestNodeId
-          const route = aStar(graph, startNode.id, exitNodeId)
-          if (route) {
-            console.log('Nav node route found with', route.length, 'nodes')
-            const pathPoints = route.map((node) => node.position.clone())
-            // Remove previous path line
-            if (currentPathLine) {
-              scene.remove(currentPathLine)
-              currentPathLine.geometry.dispose()
-              ;(currentPathLine.material as THREE.Material).dispose()
-            }
-            // Add new path line with green color for visibility
-            currentPathLine = buildPathLine(pathPoints, 0x00ff00)
-            scene.add(currentPathLine)
-            console.log('Nav path line added to scene')
-          } else {
-            console.log('No nav path found to exit')
-          }
-        } else {
-          console.log('No nearest exit found')
-        }
-      } else {
+      if (!graph || !exits) {
         console.log('Nav graph or exits not available')
+        return
       }
+      const nearestExitMarker = nearestExit(exits, camera.position)
+      if (!nearestExitMarker) {
+        console.log('No nearest exit found')
+        return
+      }
+      console.log('Nearest exit:', nearestExitMarker.label, 'at', nearestExitMarker.position)
+      const startNode = nearestNode(graph, camera.position)
+      const exitNodeId = nearestExitMarker.nearestNodeId
+      const route = aStar(graph, startNode.id, exitNodeId)
+      if (!route) {
+        console.log('No nav path found to exit')
+        return
+      }
+      console.log('Nav node route found with', route.length, 'nodes')
+      const pathPoints = route.map((node) => node.position.clone())
+      // Remove previous path line
+      if (currentPathLine) {
+        scene.remove(currentPathLine)
+        currentPathLine.geometry.dispose()
+        ;(currentPathLine.material as THREE.Material).dispose()
+      }
+      // Add new path line with green color for visibility
+      currentPathLine = buildPathLine(pathPoints, 0x00ff00)
+      scene.add(currentPathLine)
+      console.log('Nav path line added to scene')
       return // Don't set in keys for movement
     }
 
