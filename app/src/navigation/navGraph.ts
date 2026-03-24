@@ -140,27 +140,23 @@ export function extractExits(gltf: GLTF, graph: NavGraph): ExitMarker[] {
 
   gltf.scene.traverse((obj) => {
     const ud = obj.userData as Record<string, string>;
-    if (ud?.marker_type !== 'exit') return;
+    if (ud?.marker_type !== "exit") return;
 
     const position = new THREE.Vector3();
-    obj.getWorldPosition(position);
+    obj.getWorldPosition(position);  // origin is the most reliable snap point
 
     const nearest = nearestNode(graph, position);
+    if (!nearest) return;
 
     exits.push({
       label:         ud.marker_label ?? obj.name,
-      subtype:       (ud.marker_subtype as ExitSubtype) ?? 'extract',
+      subtype:       (ud.marker_subtype as ExitSubtype) ?? "extract",
       position,
       nearestNodeId: nearest.id,
       object:        obj,
     });
-
-    console.log(
-      `[NavGraph] Exit '${ud.marker_label}' (${ud.marker_subtype}) snapped to node #${nearest.id}`
-    );
   });
 
-  console.log(`[NavGraph] ${exits.length} exits found`);
   return exits;
 }
 
