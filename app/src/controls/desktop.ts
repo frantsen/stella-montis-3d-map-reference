@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import { buildPathLine, nearestReachableExit } from '../navigation/pathfinding'
+import { EYE_HEIGHT } from '../navigation/navGraph'
 
 const keys: Record<string, boolean> = {}
 export const moveSpeed = 0.045
@@ -119,8 +120,7 @@ export function setupDesktopControls(
           // Use the closest valid intersection
           const intersection = validIntersections[0]
           const point = intersection.point
-          const eyeHeight = 1.1
-          camera.position.set(point.x, point.y + eyeHeight, point.z)
+          camera.position.set(point.x, point.y + EYE_HEIGHT, point.z)
           cameraRotation.pitch = 0 // reset pitch to flat
           // keep yaw
           const euler = new THREE.Euler(cameraRotation.pitch, cameraRotation.yaw, 0, 'YXZ')

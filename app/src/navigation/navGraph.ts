@@ -25,6 +25,9 @@ export interface NavGraph {
 
 export type ExitSubtype = 'hatch' | 'extract';
 
+// Player's eye height above the ground, used for pathfinding and exit snapping
+export const EYE_HEIGHT = 1.1;
+
 export interface ExitMarker {
   label: string;
   subtype: ExitSubtype;
@@ -171,7 +174,7 @@ export function nearestNode(graph: NavGraph, worldPos: THREE.Vector3, yTolerance
     let best = null;
     let bestDist = Infinity;
     for (const node of graph.nodes) {
-      const yDiff = Math.abs(node.position.y - worldPos.y);
+      const yDiff = Math.abs(node.position.y - worldPos.y + EYE_HEIGHT);
       if (yDiff <= yTolerance) {
         const d = node.position.distanceToSquared(worldPos);
         if (d < bestDist) { bestDist = d; best = node; }
