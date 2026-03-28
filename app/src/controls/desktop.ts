@@ -92,14 +92,10 @@ export function setupDesktopControls(
       if (meshes && meshes.length > 0) {
         const intersections = raycaster.intersectObjects(meshes)
 
-        // Filter for horizontal surfaces (floors/ceilings) only, skipping transparent materials
+        // Filter out transparent materials
         const validIntersections = intersections.filter((intersection) => {
           // Skip if no face
           if (!intersection.face) return false
-
-          // Check if surface normal is mostly horizontal
-          const normal = intersection.face.normal
-          if (Math.abs(normal.y) <= 0.6) return false
 
           // Check if material is transparent - if so, skip this intersection
           const mesh = intersection.object as THREE.Mesh

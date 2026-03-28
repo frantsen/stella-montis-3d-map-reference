@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { type ExitMarker, type ExitSubtype, type NavGraph, type NavNode, nearestNode } from './navGraph';
+import { type ExitMarker, type ExitSubtype, type NavGraph, type NavNode, nearestNode, EYE_HEIGHT } from './navGraph';
 
 // ---------------------------------------------------------------------------
 // A* Pathfinding
@@ -99,10 +99,12 @@ export function nearestReachableExit(
 
     if (cost < bestCost) {
       bestCost = cost;
+      const floorStartPosition = fromPosition.clone();
+      floorStartPosition.y -= EYE_HEIGHT;
       bestResult = {
         exit,
         path: [
-          fromPosition.clone(),
+          floorStartPosition, // Include segment from player's position to nearest map node
           ...nodePath.map(n => n.position.clone()),
           exit.position.clone(),
         ],
