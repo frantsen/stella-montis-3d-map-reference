@@ -89,12 +89,38 @@ export function setupDesktopControls(
       raycaster.setFromCamera(mouse, camera)
       const meshes = (window as any).mapMeshes as THREE.Mesh[]
       if (meshes && meshes.length > 0) {
-        const intersects = raycaster.intersectObjects(meshes)
-        if (intersects.length > 0) {
-          const point = intersects[0].point
-          const groundY = 0
+        const intersections = raycaster.intersectObjects(meshes)
+
+        // Filter for horizontal surfaces (floors/ceilings) only, skipping transparent materials
+        const validIntersections = intersections.filter((intersection) => {
+          // Skip if no face
+          if (!intersection.face) return false
+
+          // Check if surface normal is mostly horizontal
+          const normal = intersection.face.normal
+          if (Math.abs(normal.y) <= 0.6) return false
+
+          // Check if material is transparent - if so, skip this intersection
+          const mesh = intersection.object as THREE.Mesh
+          const material = mesh.material
+          if (material) {
+            const materials = Array.isArray(material) ? material : [material]
+            for (const mat of materials) {
+              if (mat.transparent && mat.opacity < 1.0) {
+                return false // Skip transparent materials
+              }
+            }
+          }
+
+          return true
+        })
+
+        if (validIntersections.length > 0) {
+          // Use the closest valid intersection
+          const intersection = validIntersections[0]
+          const point = intersection.point
           const eyeHeight = 1.1
-          camera.position.set(point.x, groundY + eyeHeight, point.z)
+          camera.position.set(point.x, point.y + eyeHeight, point.z)
           cameraRotation.pitch = 0 // reset pitch to flat
           // keep yaw
           const euler = new THREE.Euler(cameraRotation.pitch, cameraRotation.yaw, 0, 'YXZ')
