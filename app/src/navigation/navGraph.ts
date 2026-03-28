@@ -165,7 +165,22 @@ export function extractExits(gltf: GLTF, graph: NavGraph): ExitMarker[] {
 // ---------------------------------------------------------------------------
 
 /** Find the NavNode closest to a world position (for snapping player/goal). */
-export function nearestNode(graph: NavGraph, worldPos: THREE.Vector3): NavNode {
+export function nearestNode(graph: NavGraph, worldPos: THREE.Vector3, yTolerance?: number): NavNode {
+  // First, try to find nodes on the same floor level (within yTolerance)
+  if (yTolerance !== undefined) {
+    let best = null;
+    let bestDist = Infinity;
+    for (const node of graph.nodes) {
+      const yDiff = Math.abs(node.position.y - worldPos.y);
+      if (yDiff <= yTolerance) {
+        const d = node.position.distanceToSquared(worldPos);
+        if (d < bestDist) { bestDist = d; best = node; }
+      }
+    }
+    if (best) return best;
+  }
+
+  // If no nodes found on same floor (or no yTolerance specified), search all nodes
   let best = graph.nodes[0];
   let bestDist = Infinity;
   for (const node of graph.nodes) {

@@ -77,7 +77,9 @@ export function nearestReachableExit(
   fromPosition: THREE.Vector3,
   subtype?: ExitSubtype
 ): { exit: ExitMarker; path: THREE.Vector3[] } | null {
-  const startNode = nearestNode(graph, fromPosition);
+  // Use y-tolerance to prefer nodes on the same floor level
+  const yTolerance = 1.5; // Allow some tolerance for floor level variations
+  const startNode = nearestNode(graph, fromPosition, yTolerance);
   if (!startNode) return null;
 
   const candidates = subtype ? exits.filter(e => e.subtype === subtype) : exits;
