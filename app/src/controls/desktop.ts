@@ -84,6 +84,12 @@ export function setupDesktopControls(
     }
 
     if (key === 'e' && !e.shiftKey) {
+      // Stop any existing animation
+      if (pathAnimation) {
+        pathAnimation.active = false
+        pathAnimation = null
+      }
+
       // Clear any previous path line immediately
       if (currentPathLine) {
         scene.remove(currentPathLine)
@@ -249,14 +255,6 @@ export function updateDesktopMovement(camera: THREE.Camera, cameraRotation: { ya
         // Interpolate position
         camera.position.copy(currentPos)
       }
-
-      // Calculate look direction (toward next point or beyond)
-      const lookTarget = pathAnimation.targetIndex + 1 < pathAnimation.path.length
-        ? pathAnimation.path[pathAnimation.targetIndex + 1].clone() // Look toward the point after next
-        : nextPoint.clone().add(nextPoint.clone().sub(currentPoint).normalize().multiplyScalar(10)) // Look ahead if at end
-      lookTarget.y += EYE_HEIGHT // Look at eye height above the target point
-      // Smoothly rotate camera to face movement direction
-      camera.lookAt(lookTarget)
 
       // Sync cameraRotation state with the new quaternion
       const euler = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ')
