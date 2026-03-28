@@ -29,7 +29,7 @@ export function setupDesktopControls(
   window.addEventListener('keydown', (e) => {
     const key = e.key.toLowerCase()
 
-    if (key === 'e' && event.shiftKey) {
+    if (key === 'e' && e.shiftKey) {
       // Stop any existing animation
       if (pathAnimation) {
         pathAnimation.active = false
@@ -83,7 +83,7 @@ export function setupDesktopControls(
       return // Don't set in keys for movement
     }
 
-    if (key === 'e' && !event.shiftKey) {
+    if (key === 'e' && !e.shiftKey) {
       // Clear any previous path line immediately
       if (currentPathLine) {
         scene.remove(currentPathLine)
@@ -222,8 +222,10 @@ export function updateDesktopMovement(camera: THREE.Camera, cameraRotation: { ya
         return
       }
 
-      // Animate toward next point
-      const animationSpeed = 0.02 // Adjust for desired speed
+      // Animate toward next point at sprint speed (matching Shift+W)
+      const segmentDistance = currentPoint.distanceTo(nextPoint)
+      const sprintSpeed = moveSpeed * sprintMultiplier // Same as manual sprint speed
+      const animationSpeed = sprintSpeed / segmentDistance // Progress per frame to match sprint speed
       pathAnimation.progress += animationSpeed
 
       // Calculate current interpolated position
