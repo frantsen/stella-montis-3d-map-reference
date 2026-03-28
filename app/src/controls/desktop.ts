@@ -7,6 +7,7 @@ export const moveSpeed = 0.045
 export const sprintMultiplier = 1.8
 
 let currentPathLine: THREE.Line | null = null
+let pathAnimation: { active: boolean; path: THREE.Vector3[]; targetIndex: number; progress: number } | null = null
 
 const mouseLook = {
   lastX: 0,
@@ -28,7 +29,61 @@ export function setupDesktopControls(
   window.addEventListener('keydown', (e) => {
     const key = e.key.toLowerCase()
 
-    if (key === 'e') {
+    if (key === 'e' && event.shiftKey) {
+      // Stop any existing animation
+      if (pathAnimation) {
+        pathAnimation.active = false
+        pathAnimation = null
+      }
+
+      // Clear any previous path line immediately
+      if (currentPathLine) {
+        scene.remove(currentPathLine)
+        currentPathLine.geometry.dispose()
+        ;(currentPathLine.material as THREE.Material).dispose()
+        currentPathLine = null
+      }
+
+      // Calculate nav-node path to nearest exit (not direct camera->exit line)
+      const graph = (window as any).navGraph
+      const exits = (window as any).exits
+      if (!graph || !exits) {
+        console.warn('Nav graph or exits not available')
+        return
+      }
+
+      try {
+        const result = nearestReachableExit(graph, exits, camera.position)
+        if (!result) {
+          console.log('No reachable exit found from current position')
+          return
+        }
+
+        if (!Array.isArray(result.path) || result.path.length < 2) {
+          console.warn('Path result is empty or invalid', result.path)
+          return
+        }
+
+        console.log('Nearest reachable exit:', result.exit.label)
+        currentPathLine = buildPathLine(result.path, 0x00ff00)
+        scene.add(currentPathLine)
+        console.log('Nav path line added to scene')
+
+        // Start camera animation along the path
+        pathAnimation = {
+          active: true,
+          path: result.path,
+          targetIndex: 1, // Start moving toward the first nav point
+          progress: 0
+        }
+      } catch (err) {
+        console.error('Error computing or drawing nav path:', err)
+      }
+
+      return // Don't set in keys for movement
+    }
+
+    if (key === 'e' && !event.shiftKey) {
       // Clear any previous path line immediately
       if (currentPathLine) {
         scene.remove(currentPathLine)
@@ -152,7 +207,63 @@ export function setupDesktopControls(
   })
 }
 
-export function updateDesktopMovement(camera: THREE.Camera) {
+export function updateDesktopMovement(camera: THREE.Camera, cameraRotation: { yaw: number; pitch: number }) {
+  // Handle path animation
+  if (pathAnimation && pathAnimation.active) {
+    const currentPoint = pathAnimation.path[pathAnimation.targetIndex - 1]
+    const nextPoint = pathAnimation.path[pathAnimation.targetIndex]
+
+    if (currentPoint && nextPoint) {
+      // Check if user is manually moving - interrupt animation
+      const isMoving = keys['w'] || keys['s'] || keys['a'] || keys['d'] || keys[' '] || keys['c']
+      if (isMoving) {
+        pathAnimation.active = false
+        pathAnimation = null
+        return
+      }
+
+      // Animate toward next point
+      const animationSpeed = 0.02 // Adjust for desired speed
+      pathAnimation.progress += animationSpeed
+
+      // Calculate current interpolated position
+      const currentPos = new THREE.Vector3().lerpVectors(currentPoint, nextPoint, pathAnimation.progress)
+      currentPos.y += EYE_HEIGHT
+
+      if (pathAnimation.progress >= 1) {
+        // Reached current target, move to next
+        camera.position.copy(nextPoint)
+        camera.position.y += EYE_HEIGHT
+        pathAnimation.targetIndex++
+        pathAnimation.progress = 0
+
+        if (pathAnimation.targetIndex >= pathAnimation.path.length) {
+          // Animation complete
+          pathAnimation.active = false
+          pathAnimation = null
+          return
+        }
+      } else {
+        // Interpolate position
+        camera.position.copy(currentPos)
+      }
+
+      // Calculate look direction (toward next point or beyond)
+      const lookTarget = pathAnimation.targetIndex + 1 < pathAnimation.path.length
+        ? pathAnimation.path[pathAnimation.targetIndex + 1].clone() // Look toward the point after next
+        : nextPoint.clone().add(nextPoint.clone().sub(currentPoint).normalize().multiplyScalar(10)) // Look ahead if at end
+      lookTarget.y += EYE_HEIGHT // Look at eye height above the target point
+      // Smoothly rotate camera to face movement direction
+      camera.lookAt(lookTarget)
+
+      // Sync cameraRotation state with the new quaternion
+      const euler = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ')
+      cameraRotation.yaw = euler.y
+      cameraRotation.pitch = euler.x
+    }
+    return // Skip manual movement when animating
+  }
+
   const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion)
   const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion)
   const up = new THREE.Vector3(0, 1, 0)

@@ -99,7 +99,7 @@ export function initApp(container: HTMLElement) {
     requestAnimationFrame(animate)
 
     if (!isMobile) {
-      updateDesktopMovement(camera)
+      updateDesktopMovement(camera, cameraRotation)
     }
 
     renderer.render(scene, camera)
