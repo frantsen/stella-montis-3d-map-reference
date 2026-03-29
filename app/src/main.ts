@@ -37,6 +37,14 @@ export function initApp(container: HTMLElement) {
       const now = Date.now()
       
       const model = gltf.scene
+      
+      // Hide any navigation path lines that might be in the model
+      model.traverse((child) => {
+        if (child instanceof THREE.Line || child instanceof THREE.LineSegments) {
+          child.visible = false
+        }
+      })
+      
       scene.add(model)
 
       const mapMeshes: THREE.Mesh[] = []

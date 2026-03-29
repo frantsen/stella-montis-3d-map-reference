@@ -66,6 +66,7 @@ export function setupDesktopControls(
 
         console.log('Nearest reachable exit:', result.exit.label)
         currentPathLine = buildPathLine(result.path, 0x00ff00)
+        currentPathLine.visible = true // Make the path visible
         scene.add(currentPathLine)
         console.log('Nav path line added to scene')
 
@@ -120,6 +121,7 @@ export function setupDesktopControls(
 
         console.log('Nearest reachable exit:', result.exit.label)
         currentPathLine = buildPathLine(result.path, 0x00ff00)
+        currentPathLine.visible = true // Make the path visible
         scene.add(currentPathLine)
         console.log('Nav path line added to scene')
       } catch (err) {

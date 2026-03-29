@@ -135,5 +135,6 @@ export function buildPathLine(
   const mat = new THREE.LineBasicMaterial({ color, linewidth: 2, depthTest: false });
   const line = new THREE.Line(geo, mat);
   line.renderOrder = 999; // draw on top
+  line.visible = false; // Make invisible by default
   return line;
 }
