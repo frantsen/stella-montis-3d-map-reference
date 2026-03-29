@@ -132,9 +132,9 @@ export function buildPathLine(
   color = 0x00ff44
 ): THREE.Line {
   const geo = new THREE.BufferGeometry().setFromPoints(path);
-  const mat = new THREE.LineBasicMaterial({ color, linewidth: 2, depthTest: false });
+  const mat = new THREE.LineBasicMaterial({ color, linewidth: 2, depthTest: true });
   const line = new THREE.Line(geo, mat);
-  line.renderOrder = 999; // draw on top
-  line.visible = false; // Make invisible by default
+  line.renderOrder = 1; // Draw after most objects but before UI
+  line.visible = true; // Make visible by default for path display
   return line;
 }
