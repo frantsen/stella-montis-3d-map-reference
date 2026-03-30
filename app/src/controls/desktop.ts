@@ -1,7 +1,7 @@
 import * as THREE from 'three'
 
 const keys: Record<string, boolean> = {}
-export const moveSpeed = 0.045
+export const moveSpeed = 0.07
 export const sprintMultiplier = 1.8
 
 const mouseLook = {
