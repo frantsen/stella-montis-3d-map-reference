@@ -3,7 +3,7 @@ import { buildPathLine, nearestReachableExit } from '../navigation/pathfinding'
 import { EYE_HEIGHT } from '../navigation/navGraph'
 
 const keys: Record<string, boolean> = {}
-export const moveSpeed = 0.045
+export const moveSpeed = 0.07
 export const sprintMultiplier = 1.8
 
 let currentPathLine: THREE.Line | null = null
